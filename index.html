@@ -1,0 +1,1294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flyer Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+/* Layout: fixed-width control rail on the left, scaled live preview on the right; stacks under 900px. */
+:root{
+  --bg:#ECEEF1; --panel:#F7F8FA; --ink:#15181D; --muted:#566070; --line:#D0D5DC;
+  --accent:#2744E8; --on-accent:#FFFFFF; --warn:#9A4A12; --warn-bg:#FBEBDD; --err:#A32222; --err-bg:#FBE4E4;
+  --f-display:'Bricolage Grotesque',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#12151A; --panel:#1A1E25; --ink:#E8EBF0; --muted:#9AA3B0; --line:#2B313B;
+  --accent:#8196FF; --on-accent:#0B1030; --warn:#F0B27A; --warn-bg:#33261A; --err:#FF9A9A; --err-bg:#3A1D1D; color-scheme:dark}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:minmax(330px,420px) minmax(0,1fr);min-height:100vh}
+.panel{background:var(--panel);border-right:1px solid var(--line);padding:24px 20px 40px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.panel h1{font:700 26px/1.1 var(--f-display);margin:0 0 6px;letter-spacing:-.01em}
+.lede{margin:0;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+label,legend,.lab{font:500 12px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+textarea,select,input[type=text],input[type=password]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px}
+textarea{resize:vertical;min-height:120px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{flex:1;margin:0;font:500 13px/1 var(--f-body);text-transform:none;letter-spacing:0;color:var(--ink)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;padding:10px 8px;cursor:pointer;background:var(--bg)}
+.seg input:checked+span{background:var(--accent);color:var(--on-accent);font-weight:600}
+.seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-4px}
+.seg label+label span{border-left:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.hint{margin:0;color:var(--muted);font-size:12px}
+.drop{border:1px dashed var(--line);border-radius:6px;padding:12px;text-align:center;cursor:pointer;color:var(--muted);font:400 13px/1.3 var(--f-body);text-transform:none;letter-spacing:0}
+.drop.over,.drop:hover{border-color:var(--accent);color:var(--ink)}
+.drop input{display:none}
+.ups{display:flex;flex-wrap:wrap;gap:8px}
+.up{position:relative;width:72px}
+.up img{display:block;width:72px;height:72px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
+.up b{position:absolute;left:4px;bottom:4px;background:var(--ink);color:var(--bg);font:500 10px/1 var(--f-mono);padding:2px 4px;border-radius:3px}
+.up button{position:absolute;right:-6px;top:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--panel);cursor:pointer;line-height:1;padding:0}
+.row{display:flex;gap:8px}
+.btn{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:9px 14px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);flex:1}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+#status{min-height:20px;color:var(--muted);font:400 13px/1.4 var(--f-mono)}
+details{border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;font:500 12px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+details[open] summary{margin-bottom:12px}
+details .field+.field{margin-top:12px}
+.mono{font-family:var(--f-mono);font-size:12px;line-height:1.5}
+.stagewrap{padding:20px clamp(16px,3vw,36px) 48px;min-width:0}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+#meta{font:400 12px/1.3 var(--f-mono);color:var(--muted)}
+.alert{border-radius:6px;padding:10px 12px;margin-bottom:10px;font-size:13px}
+.alert.warn{background:var(--warn-bg);color:var(--warn)}
+.alert.err{background:var(--err-bg);color:var(--err)}
+.alert ul{margin:4px 0 0;padding-left:18px}
+#stage{position:relative;overflow:hidden;width:100%;box-shadow:0 1px 2px rgba(0,0,0,.12),0 12px 32px rgba(0,0,0,.14)}
+#stage .pz{transform-origin:top left}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr)}.panel{border-right:0;border-bottom:1px solid var(--line)}}
+@media (prefers-reduced-motion:no-preference){.btn{transition:border-color .15s}}
+</style>
+
+<style id="posterCss">
+/* Poster styles. Every size scales with --u (canvas width / 1000). Plain colours only, so PNG export stays faithful. */
+.pz{position:relative;overflow:hidden;display:flex;flex-direction:column;background:var(--p-bg);color:var(--p-ink);font-family:var(--fb);line-height:1.3;text-align:left}
+.pz,.pz *{box-sizing:border-box}
+.pz h1,.pz p,.pz ul{margin:0;padding:0}
+.pz-s{position:relative;flex:0 0 auto;padding:calc(var(--u)*56) calc(var(--u)*64);background:var(--s-bg);color:var(--s-fg)}
+.pz-hero{flex:1 1 auto;flex-shrink:1;display:flex;flex-direction:column;justify-content:center}
+.pz-eyebrow{font-family:var(--fm);font-size:calc(var(--u)*22);letter-spacing:.14em;text-transform:uppercase;font-weight:500;margin-bottom:calc(var(--u)*28)}
+.pz-h{font-family:var(--fd);font-weight:var(--fdw);line-height:.96;letter-spacing:-.02em}
+.pz-sub{font-size:calc(var(--u)*34);line-height:1.35;margin-top:calc(var(--u)*32);max-width:calc(var(--u)*760)}
+.pz-center{text-align:center}
+.pz-center .pz-sub{margin-left:auto;margin-right:auto}
+.pz-bar{width:calc(var(--u)*120);height:calc(var(--u)*14);background:var(--s-ac);margin-bottom:calc(var(--u)*36)}
+.pz-center .pz-bar{margin-left:auto;margin-right:auto}
+.pz-hero-r{display:grid;grid-template-columns:1.15fr .85fr;padding:0}
+.pz-hero-r .pz-ht{padding:calc(var(--u)*64);align-self:end}
+.pz-art{background-size:cover;background-position:center;background-repeat:no-repeat}
+.pz-hero-t{padding:0;justify-content:flex-start}
+.pz-hero-t .pz-ht{padding:calc(var(--u)*56) calc(var(--u)*64);flex:1 1 auto;display:flex;flex-direction:column;justify-content:center}
+.pz-kicker{font-family:var(--fm);font-size:calc(var(--u)*20);letter-spacing:.14em;text-transform:uppercase;color:var(--s-mu);margin-bottom:calc(var(--u)*14);font-weight:500}
+.pz-title{font-family:var(--fd);font-weight:var(--fdw);font-size:calc(var(--u)*52);line-height:1.02;letter-spacing:-.015em;margin-bottom:calc(var(--u)*36)}
+.pz-stats{display:grid;gap:calc(var(--u)*40)}
+.pz-stat{border-top:calc(var(--u)*4) solid var(--s-fg);padding-top:calc(var(--u)*20)}
+.pz-big{font-family:var(--fd);font-weight:var(--fdw);color:var(--s-ac);line-height:1;letter-spacing:-.02em}
+.pz-lbl{font-size:calc(var(--u)*26);margin-top:calc(var(--u)*12)}
+.pz-brow{display:grid;grid-template-columns:calc(var(--u)*210) 1fr calc(var(--u)*130);align-items:center;gap:calc(var(--u)*24);padding:calc(var(--u)*10) 0}
+.pz-bl{font-size:calc(var(--u)*26)}
+.pz-track{height:calc(var(--u)*34);background:var(--s-ru)}
+.pz-fill{height:100%}
+.pz-bv{font-family:var(--fd);font-weight:var(--fdw);font-size:calc(var(--u)*30);text-align:right;font-variant-numeric:tabular-nums}
+.pz-st{font-family:var(--fd);font-weight:var(--fdw);font-size:calc(var(--u)*34);line-height:1.1;margin-bottom:calc(var(--u)*8)}
+.pz-sx{font-size:calc(var(--u)*26);line-height:1.4}
+.pz-dgrid{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*36) calc(var(--u)*48)}
+.pz-dgrid .pz-wide{grid-column:1/-1}
+.pz-dv{font-size:calc(var(--u)*38);font-weight:600;line-height:1.15}
+.pz-body{font-size:calc(var(--u)*30);line-height:1.5;max-width:calc(var(--u)*820)}
+.pz-body p+p{margin-top:calc(var(--u)*20)}
+.pz-ul{list-style:none;display:grid;gap:calc(var(--u)*16) calc(var(--u)*40)}
+.pz-ul li{display:grid;grid-template-columns:calc(var(--u)*14) 1fr;gap:calc(var(--u)*18);font-size:calc(var(--u)*30);align-items:start}
+.pz-mk{display:block;width:calc(var(--u)*14);height:calc(var(--u)*14);margin-top:calc(var(--u)*13);background:var(--s-ac)}
+.pz-cmp{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*32)}
+.pz-cc{padding:calc(var(--u)*36);background:var(--s-ru);color:var(--s-fg)}
+.pz-cc+.pz-cc{background:var(--p-accent);color:var(--p-onaccent)}
+.pz-cc+.pz-cc .pz-mk{background:var(--p-onaccent)}
+.pz-cc .pz-title{font-size:calc(var(--u)*40);margin-bottom:calc(var(--u)*24)}
+.pz-img{height:calc(var(--u)*520)}
+.pz-cap{font-family:var(--fm);font-size:calc(var(--u)*20);margin-top:calc(var(--u)*14);color:var(--s-mu)}
+.pz-cta .pz-h{font-size:calc(var(--u)*76)}
+.pz-pill{display:inline-block;margin-top:calc(var(--u)*36);padding:calc(var(--u)*18) calc(var(--u)*38);border-radius:999px;background:var(--s-fg);color:var(--s-bg);font-weight:600;font-size:calc(var(--u)*28)}
+.pz-contact{font-family:var(--fm);font-size:calc(var(--u)*24);margin-top:calc(var(--u)*28)}
+.pz-s{overflow:hidden}
+.pz-in,.pz-ht{position:relative;z-index:1}
+.pz-deco{position:absolute;z-index:0;background-repeat:no-repeat;background-size:cover;pointer-events:none}
+.pz-step{position:relative;display:grid;grid-template-columns:calc(var(--u)*64) 1fr;column-gap:calc(var(--u)*28)}
+.pz-step.g{grid-template-columns:calc(var(--u)*64) calc(var(--u)*150) 1fr}
+.pz-rail{position:relative;align-self:stretch}
+.pz-line{position:absolute;left:calc(var(--u)*30.5);width:calc(var(--u)*3);top:0;bottom:0;background:var(--s-ru)}
+.pz-step.f .pz-line{top:calc(var(--u)*54)}
+.pz-step.l .pz-line{bottom:auto;height:calc(var(--u)*54)}
+.pz-step.f.l .pz-line{display:none}
+.pz-node{position:absolute;left:0;top:calc(var(--u)*26);width:calc(var(--u)*64);height:calc(var(--u)*56);display:flex;align-items:center;justify-content:center;border:calc(var(--u)*3) solid var(--s-ac);background:var(--s-bg);font-family:var(--fm);font-weight:500;font-size:calc(var(--u)*28);color:var(--s-ac)}
+.pz-gl{padding:calc(var(--u)*26) 0 calc(var(--u)*26)}
+.pz-glt{width:calc(var(--u)*150);height:calc(var(--u)*150);border:calc(var(--u)*2) solid var(--s-ru);background-color:var(--s-bg);background-size:cover;background-position:center;background-repeat:no-repeat}
+.pz-sb{padding:calc(var(--u)*26) 0 calc(var(--u)*30)}
+.pz-gauges{display:grid;gap:calc(var(--u)*32)}
+.pz-g{text-align:center}
+.pz-gr{position:relative;width:100%}
+.pz-gr svg{display:block;width:100%;height:auto}
+.pz-gv{position:absolute;left:0;right:0;top:50%;margin-top:calc(var(--u)*-30);font-family:var(--fd);font-weight:var(--fdw);font-size:calc(var(--u)*52);line-height:1;color:var(--s-fg);text-align:center}
+.pz-lh{display:grid;gap:calc(var(--u)*8);margin-bottom:calc(var(--u)*18)}
+.pz-lh>div{text-align:center}
+.pz-lh .pz-sx{margin-top:calc(var(--u)*6);font-size:calc(var(--u)*22)}
+.pz-lyv{position:relative}
+.pz-lyv svg{position:absolute;left:0;top:0;width:100%;height:100%}
+.pz-nd{position:absolute;width:calc(var(--u)*28);height:calc(var(--u)*28);border-radius:50%;background:var(--s-bg);border:calc(var(--u)*3) solid var(--s-mu)}
+.pz-nd.h{background:var(--s-ac);border-color:var(--s-ac)}
+.pz-fr{position:absolute;z-index:5;width:calc(var(--u)*44);height:calc(var(--u)*44);border:0 solid var(--p-accent2);pointer-events:none;display:block}
+.pz-fr.tl{left:calc(var(--u)*22);top:calc(var(--u)*22);border-top-width:calc(var(--u)*3);border-left-width:calc(var(--u)*3)}
+.pz-fr.tr{right:calc(var(--u)*22);top:calc(var(--u)*22);border-top-width:calc(var(--u)*3);border-right-width:calc(var(--u)*3)}
+.pz-fr.bl{left:calc(var(--u)*22);bottom:calc(var(--u)*22);border-bottom-width:calc(var(--u)*3);border-left-width:calc(var(--u)*3)}
+.pz-fr.br{right:calc(var(--u)*22);bottom:calc(var(--u)*22);border-bottom-width:calc(var(--u)*3);border-right-width:calc(var(--u)*3)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="panel">
+    <header>
+      <h1>Flyer Studio</h1>
+      <p class="lede">Describe what you need. Gemini plans the layout and paints the artwork. The words, numbers and charts are set as real type on top.</p>
+      <p class="hint" id="ver">Build 5 · Pollinations option</p>
+    </header>
+
+    <form id="f" class="panel-form" style="display:flex;flex-direction:column;gap:18px" autocomplete="off">
+      <div class="field">
+        <label for="brief">What do you need?</label>
+        <textarea id="brief" rows="6" placeholder="Say what it is for, who it is for, and give every fact that has to appear: dates, places, prices, figures."></textarea>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <fieldset>
+        <legend>Type</legend>
+        <div class="seg">
+          <label><input type="radio" name="type" value="flyer" checked><span>Flyer</span></label>
+          <label><input type="radio" name="type" value="infographic"><span>Infographic</span></label>
+        </div>
+      </fieldset>
+
+      <div class="field" id="fmtField">
+        <label for="fmt">Size</label>
+        <select id="fmt"></select>
+      </div>
+
+      <div class="field">
+        <label for="style">Look</label>
+        <select id="style"></select>
+        <p class="hint" id="styleHint"></p>
+      </div>
+
+      <fieldset>
+        <legend>Imagery</legend>
+        <div class="seg">
+          <label><input type="radio" name="img" value="generate" checked><span>AI art</span></label>
+          <label><input type="radio" name="img" value="own"><span>My images</span></label>
+          <label><input type="radio" name="img" value="none"><span>Type only</span></label>
+        </div>
+        <label class="chk" style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font:400 13px/1.3 var(--f-body);color:var(--ink)"><input type="checkbox" id="drawn" checked> Also add code-drawn tech graphics</label>
+      </fieldset>
+
+      <div class="field" id="upField">
+        <span class="lab">Your images (up to 4)</span>
+        <label class="drop" id="drop">Drop images here or click to choose<input type="file" id="files" accept="image/*" multiple></label>
+        <div class="ups" id="ups"></div>
+      </div>
+
+      <div class="row">
+        <button type="submit" class="btn primary" id="go">Generate</button>
+        <button type="button" class="btn" id="stop" hidden>Stop</button>
+      </div>
+      <div id="status" role="status" aria-live="polite"></div>
+    </form>
+
+    <details id="settings">
+      <summary>Gemini settings</summary>
+      <div class="field">
+        <label for="prov">Image provider</label>
+        <select id="prov"><option value="pollinations">Pollinations (free)</option><option value="gemini">Gemini (needs billing)</option></select>
+      </div>
+      <div class="field">
+        <label for="pollUrl">Pollinations address</label>
+        <input type="text" id="pollUrl" spellcheck="false">
+        <p class="hint">{prompt} {w} {h} {seed} are filled in. If this address fails, the older image.pollinations.ai address is tried next. Layout planning still uses your Gemini key, which can be free.</p>
+      </div>
+      <div class="field">
+        <label for="key">API key</label>
+        <input type="password" id="key" placeholder="Paste your Gemini API key" autocomplete="off">
+        <p class="hint">Saved in this browser only. Use this file on your own machine; do not put a key into a page you host for others.</p>
+      </div>
+      <div class="field">
+        <label for="mText">Layout model</label>
+        <input type="text" id="mText" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="mImg">Image model</label>
+        <input type="text" id="mImg" spellcheck="false">
+        <p class="hint">Model names change. If a call fails with "not found", put the current name here.</p>
+      </div>
+      <div class="row"><button type="button" class="btn" id="testG">Test Gemini</button></div>
+      <pre id="testOut" class="mono" style="white-space:pre-wrap;margin:8px 0 0"></pre>
+      <img id="testImg" alt="Test image from Gemini" hidden style="max-width:140px;border:1px solid var(--line);border-radius:4px;margin-top:8px">
+    </details>
+
+    <details id="prompts">
+      <summary>Prompts and plan (for testing)</summary>
+      <div class="field">
+        <label for="plannerPrompt">Layout planner instructions</label>
+        <textarea id="plannerPrompt" class="mono" rows="12" spellcheck="false"></textarea>
+      </div>
+      <div class="field">
+        <label for="artPrompt">Artwork prompt template</label>
+        <textarea id="artPrompt" class="mono" rows="9" spellcheck="false"></textarea>
+        <p class="hint">Placeholders: {{kind}} {{subject}} {{style}} {{palette}} {{safeLine}}</p>
+      </div>
+      <div class="row"><button type="button" class="btn" id="resetPrompts">Reset to defaults</button></div>
+      <div class="field">
+        <label for="planJson">Current plan (editable JSON)</label>
+        <textarea id="planJson" class="mono" rows="12" spellcheck="false"></textarea>
+        <div class="row">
+          <button type="button" class="btn" id="applyPlan">Re-render from JSON</button>
+          <button type="button" class="btn" id="regenArt">Regenerate artwork</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="lastPrompts">Last artwork prompts sent</label>
+        <textarea id="lastPrompts" class="mono" rows="6" readonly></textarea>
+      </div>
+    </details>
+  </aside>
+
+  <main class="stagewrap">
+    <div class="bar">
+      <span id="meta"></span>
+      <div class="row">
+        <button type="button" class="btn" id="dlPng">Download PNG</button>
+        <button type="button" class="btn" id="dlHtml">Download HTML</button>
+      </div>
+    </div>
+    <div id="alerts"></div>
+    <div id="stage" aria-label="Design preview"></div>
+  </main>
+</div>
+
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} }
+};
+function hex(v, fb){ v = String(v || '').trim(); return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v) ? v : fb; }
+function rgb(h){ h = h.replace('#',''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); return [0,2,4].map(i => parseInt(h.slice(i, i+2), 16)); }
+function mix(a, b, t){ const A = rgb(a), B = rgb(b); return '#' + A.map((v,i) => Math.round(v*t + B[i]*(1-t)).toString(16).padStart(2,'0')).join(''); }
+const fmtNum = n => Number(n).toLocaleString('en-US', {maximumFractionDigits: 2});
+
+/* ---------- fonts the planner may choose from ---------- */
+const FONTS = {
+  'Bricolage Grotesque': {w:'400;700;800', hw:800, r:'d', fb:'sans-serif'},
+  'Fraunces':            {w:'400;700',     hw:700, r:'d', fb:'serif'},
+  'DM Serif Display':    {w:'400',         hw:400, r:'d', fb:'serif'},
+  'Archivo':             {w:'400;700;900', hw:900, r:'d', fb:'sans-serif'},
+  'Anton':               {w:'400',         hw:400, r:'d', fb:'sans-serif'},
+  'Playfair Display':    {w:'400;700;900', hw:900, r:'d', fb:'serif'},
+  'Young Serif':         {w:'400',         hw:400, r:'d', fb:'serif'},
+  'Instrument Serif':    {w:'400',         hw:400, r:'d', fb:'serif'},
+  'Unbounded':           {w:'400;700;900', hw:700, r:'d', fb:'sans-serif'},
+  'Work Sans':           {w:'400;600;700', hw:700, r:'b', fb:'sans-serif'},
+  'IBM Plex Sans':       {w:'400;600',     hw:600, r:'b', fb:'sans-serif'},
+  'DM Sans':             {w:'400;500;700', hw:700, r:'b', fb:'sans-serif'},
+  'Source Serif 4':      {w:'400;600',     hw:600, r:'b', fb:'serif'},
+  'Libre Franklin':      {w:'400;600;700', hw:700, r:'b', fb:'sans-serif'},
+  'IBM Plex Mono':       {w:'400;500',     hw:500, r:'m', fb:'monospace'},
+  'JetBrains Mono':      {w:'400;500',     hw:500, r:'m', fb:'monospace'},
+  'Chakra Petch':        {w:'400;500;600;700', hw:700, r:'d', fb:'sans-serif'},
+  'Sora':                {w:'400;700',     hw:700, r:'d', fb:'sans-serif'}
+};
+const namesOf = r => Object.keys(FONTS).filter(n => FONTS[n].r === r);
+const loadedFonts = new Map();
+function fontLink(name){
+  if (!FONTS[name]) return Promise.resolve();
+  if (loadedFonts.has(name)) return loadedFonts.get(name);
+  const p = new Promise(res => {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=' + name.replace(/ /g,'+') + ':wght@' + FONTS[name].w + '&display=swap';
+    l.onload = l.onerror = () => res();
+    document.head.appendChild(l);
+  });
+  loadedFonts.set(name, p);
+  return p;
+}
+async function ensureFonts(names){
+  const work = (async () => {
+    await Promise.all(names.map(fontLink));
+    await Promise.all(names.flatMap(n => [
+      document.fonts.load(FONTS[n].hw + ' 40px "' + n + '"').catch(() => {}),
+      document.fonts.load('400 20px "' + n + '"').catch(() => {})
+    ]));
+  })();
+  await Promise.race([work, new Promise(r => setTimeout(r, 5000))]);
+}
+
+/* ---------- formats and looks ---------- */
+const FORMATS = {
+  letter: {label:'Letter flyer, 8.5 × 11 in', w:1000, h:1294},
+  poster: {label:'Poster, 18 × 24 in',        w:900,  h:1200},
+  social: {label:'Social post, 4:5',          w:1080, h:1350},
+  square: {label:'Square, 1:1',               w:1080, h:1080},
+  tall:   {label:'Tall infographic',          w:1000, h:null}
+};
+const STYLES = [
+  {id:'auto',     name:'Let the planner choose', fonts:[], art:'', hint:'The planner picks fonts, palette and an art direction that fit the subject.'},
+  {id:'swiss',    name:'Swiss grid', fonts:['Archivo','IBM Plex Sans'], art:'flat geometric vector shapes, two or three solid colours, hard edges, no gradients, no texture, generous empty space', hint:'Strict grid, heavy sans type, one strong accent.'},
+  {id:'riso',     name:'Risograph', fonts:['Bricolage Grotesque','Work Sans'], art:'two-colour risograph print, visible grain, slight ink misregistration, flat overlapping shapes, imperfect edges', hint:'Grainy two-ink print feel. Good for events and community notices.'},
+  {id:'editorial',name:'Editorial photo', fonts:['Fraunces','Source Serif 4'], art:'documentary-style photograph, natural light, real materials, shallow depth of field, muted colour, fine film grain, unstaged', hint:'Serif type over quiet, real-looking photography.'},
+  {id:'cutpaper', name:'Cut paper', fonts:['Young Serif','DM Sans'], art:'layered cut-paper collage, matte coloured paper, soft contact shadows, simple shapes, tactile', hint:'Warm, handmade, simple shapes.'},
+  {id:'linocut',  name:'Linocut', fonts:['Anton','Libre Franklin'], art:'linocut block print, bold carved lines, two or three flat inks on off-white paper, rough edges', hint:'Loud condensed type with carved, high-contrast art.'},
+  {id:'line',     name:'Line drawing', fonts:['Unbounded','IBM Plex Sans'], art:'precise single-weight line illustration, isometric or elevation view, thin even strokes, at most one flat tint', hint:'Technical and clean. Good for explainers and processes.'},
+  {id:'hud',      name:'HUD / high-tech', fonts:['Chakra Petch','IBM Plex Sans'], pal:'deep navy background #0A1220, off-white ink, one cyan accent #22D3C5, amber secondary #FFB224', motifs:'neural, circuit, orbit, grid', art:'fine-line technical illustration with HUD overlays, thin even strokes, deep navy ground, cyan highlights, no glow, no gradients', hint:'Dark navy, cyan accent, circuit and network graphics. Frame brackets on.'},
+  {id:'blueprint',name:'Blueprint', fonts:['Chakra Petch','Work Sans'], pal:'blueprint blue background #0E2A55, white ink, one pale yellow accent #FFD84D', motifs:'grid, iso, orbit, hex', art:'engineering blueprint drawing, white linework on deep blue paper, dimension lines, isometric views, no gradients', hint:'White linework on blueprint blue. Isometric and engineering graphics.'},
+  {id:'schematic',name:'Schematic (light)', fonts:['Sora','IBM Plex Sans'], pal:'light paper #F4F6F8, near-black ink #10151C, one orange accent #FF5A1F', motifs:'circuit, hex, dots, wave', art:'clean technical schematic, black linework on white paper, one orange highlight colour, precise and sparse', hint:'Light paper, black linework, one orange accent.'}
+];
+const EXAMPLES = {
+  'Event flyer': "Bake sale flyer for St. Anne's parish. Saturday 18 October, 9am to 2pm, Parish Hall, 12 Mill Street. Cakes, cookies, sourdough and jam. Proceeds fund the new playground. Free entry.",
+  'Data infographic': "Infographic on how Hartfield Library's visits changed in 2025. Visits per month: Jan 4200, Feb 3900, Mar 4600, Apr 5100, May 5400, Jun 6200. Why people visit: study space 38%, borrowing 31%, kids' programs 19%, computers 12%. Source: Hartfield Library annual report.",
+  'How-to explainer': "Infographic explaining how to brew pour-over coffee. Use a 1:16 ratio. Grind 30g of coffee medium. Rinse the filter. Bloom with 60g of water for 45 seconds. Pour up to 500g of water by 2:30. Finish dripping by 3:30."
+};
+
+/* ---------- default prompts (editable in the page) ---------- */
+const DEFAULT_PLANNER = `You are the layout and copy planner for a print-quality flyer and infographic tool. You do not draw pictures. You return one JSON object that a renderer turns into a finished design with real typography, real charts, technical graphics drawn in code, and optional generated artwork.
+
+RULES FOR COPY
+- Use only facts the person gave. Never invent dates, times, prices, addresses, names, statistics or quotes. If a design normally needs something that is missing, write a short placeholder in square brackets, such as [Date], and mention it in "notes".
+- Headline: 12 words or fewer. Short lines, concrete words, no hype. No exclamation marks unless the brief uses them.
+- Step, list and gauge titles carry no numbers. The renderer numbers steps itself.
+- Infographics: every number shown must come from the brief. If the brief has no data, build the structure with bracketed placeholder values and say so in "notes".
+
+RULES FOR DESIGN
+- Flyer: 3 to 5 sections. Infographic: 4 to 8 sections. One idea per section.
+- Start with a "hero". End a flyer with "cta" or "details".
+- An infographic must be visual. Never return a page of only text and rules. Give the hero a bold "deco". Give "steps" a "glyph" on every item. Use "layers", "gauges", "bars" or "stats" whenever the brief holds something they can show. Vary the motifs from section to section so the page does not repeat itself.
+- "deco" is a graphic drawn behind or beside a section: {"motif":"neural|circuit|hex|orbit|dots|wave|iso|grid","place":"bg|right|left|bottom","strength":"soft|bold"}. Use "bold" on the hero and at most one other section. Use "soft" behind anything with dense text. On a hero, place "right" or "left" keeps the headline clear.
+- Match motifs to the subject: neural, circuit and orbit for AI and computing; hex and dots for data and science; wave for audio, signals and time; iso for systems and products; grid for plans and engineering.
+- "frame": true adds corner brackets. Use it for technical looks.
+- Palette: 3 to 4 colours that suit the subject and the chosen look. "ink" on "bg" must have strong contrast, and so must "onAccent" on "accent". No purple-to-blue gradients, no neon glow.
+- Fonts: choose only from the allowed lists below.
+- Give sections a "tone" so the page has rhythm: bg, tint, accent or ink. Do not use the same tone for more than two sections in a row.
+- Fixed-height formats have little room. Keep copy short and use fewer sections.
+- Generated artwork: only when the ART MODE allows it. When ART MODE is generate, include at least one art item and use it in the hero, and still give the hero a "deco" as a fallback. Each art item describes subject and composition only. Never ask for text, letters, numbers, logos or signs inside a picture. Say which side of the picture stays quiet so type fits ("safe": left, right, top, bottom or none).
+- Prefer the person's uploaded images (ids u1, u2, ...) when they fit. Reference them by id in a section's "image".
+
+ALLOWED FONTS
+display: {{display_fonts}}
+body: {{body_fonts}}
+mono: {{mono_fonts}}
+
+Return JSON in exactly this shape and nothing else:
+{
+  "kind": "flyer" | "infographic",
+  "notes": ["placeholders or assumptions the person should check"],
+  "frame": true | false,
+  "palette": {"bg":"#hex","ink":"#hex","accent":"#hex","accent2":"#hex","onAccent":"#hex"},
+  "fonts": {"display":"name","body":"name","mono":"name"},
+  "art": [{"id":"a1","prompt":"subject and composition","look":"visual language in a short phrase","aspect":"1:1|3:4|4:3|16:9|9:16","safe":"left|right|top|bottom|none"}],
+  "sections": [ ...in reading order... ]
+}
+
+SECTION TYPES (field "type"). Every section may also carry "tone" and "deco".
+hero: eyebrow, headline, sub, image (an art id, an upload id or null), imageMode ("background"|"right"|"top"), align ("left"|"center"), imageTone ("light"|"dark": the text colour when the image sits behind the text)
+stats: title, items [{value,label}] with 2 to 4 items
+gauges: title, items [{value,label,max}] with 2 to 4 items. value is a number or text such as 38%. max defaults to 100.
+bars: title, unit, items [{label,value}] with 3 to 8 items, value is a number
+steps: title, items [{title,text,glyph}] with 3 to 5 items. glyph is a motif name.
+layers: title, layers [{label,caption,nodes}] with 3 to 6 layers. nodes is a number from 2 to 8. Draws a network diagram with highlighted path. Use it for anything that flows through stages made of many parts.
+details: items [{label,value}] with 2 to 6 items
+text: title, body
+list: title, items [string] with 3 to 8 items
+compare: left {title, points[]}, right {title, points[]}
+image: image, caption
+cta: headline, action, contact`;
+
+const DEFAULT_ART = `Create artwork for a printed {{kind}}. The picture contains no text of any kind.
+
+Subject and composition: {{subject}}
+Visual language: {{style}}
+Colours: work within these hex colours: {{palette}}.
+{{safeLine}}
+
+Hard rules: no letters, numbers, words, logos, signs, watermarks or captions anywhere in the image. No glossy 3D render look, no glowing orbs, no neon gradients, no generic abstract swirls, no stock-photo smiles. Show hands and faces only if the subject needs them, and then keep them simple. Flat, deliberate, print-ready.`;
+
+/* ---------- state ---------- */
+const state = { plan:null, art:{}, uploads:[], ctl:null, busy:false, sample:false };
+let uid = 0;
+
+/* ---------- procedural motifs: inline SVG, drawn in code, no AI, no text ---------- */
+function rng(seed){
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const MOTIFS = ['circuit','neural','hex','orbit','dots','wave','iso','grid'];
+const f1 = n => Math.round(n * 10) / 10;
+const drawnOn = () => { const e = document.getElementById('drawn'); return !e || e.checked; };
+
+function toneRaw(tone, p){
+  return ({
+    bg:     {bg:p.bg,     fg:p.ink,     ac:p.accent},
+    tint:   {bg:p.tint,   fg:p.ink,     ac:p.accent},
+    accent: {bg:p.accent, fg:p.onAccent, ac:p.onAccent},
+    ink:    {bg:p.ink,    fg:p.bg,      ac:p.accent2}
+  })[tone] || {bg:p.bg, fg:p.ink, ac:p.accent};
+}
+function motifColors(tone, p, bold){
+  const t = toneRaw(tone, p);
+  return {
+    bg: t.bg,
+    a: mix(t.fg, t.bg, bold ? .3 : .15),
+    b: mix(t.fg, t.bg, bold ? .55 : .3),
+    hi: t.ac === t.fg ? mix(t.fg, t.bg, bold ? .75 : .4) : (bold ? t.ac : mix(t.ac, t.bg, .5)),
+    fa: mix(t.ac, t.bg, .2),
+    t: mix(t.fg, t.bg, .12), l: mix(t.fg, t.bg, .22), r: mix(t.fg, t.bg, .06)
+  };
+}
+const ln = (x1, y1, x2, y2, col, w, extra) => '<line x1="'+f1(x1)+'" y1="'+f1(y1)+'" x2="'+f1(x2)+'" y2="'+f1(y2)+'" stroke="'+col+'" stroke-width="'+w+'"'+(extra || '')+'/>';
+const cr = (x, y, rad, fill, stroke, w) => '<circle cx="'+f1(x)+'" cy="'+f1(y)+'" r="'+f1(rad)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(w || 0)+'"/>';
+
+function mCircuit(W, H, c, r, dir){
+  const P = 26, gx = Math.floor(W / P), gy = Math.floor(H / P);
+  let out = '';
+  const n = Math.round(W * H / 8000);
+  for (let t = 0; t < n; t++){
+    let x = Math.floor(r() * gx), y = Math.floor(r() * gy);
+    if (dir === 'right' && r() > x / gx + .15) continue;
+    if (dir === 'left' && r() > 1 - x / gx + .15) continue;
+    if (dir === 'bottom' && r() > y / gy + .15) continue;
+    const pts = [[x, y]]; let horiz = r() < .5;
+    const segs = 2 + Math.floor(r() * 4);
+    for (let s = 0; s < segs; s++){
+      const len = (2 + Math.floor(r() * 5)) * (r() < .5 ? -1 : 1);
+      if (horiz) x = Math.max(0, Math.min(gx, x + len)); else y = Math.max(0, Math.min(gy, y + len));
+      pts.push([x, y]); horiz = !horiz;
+    }
+    let d = 'M' + pts[0][0] * P + ' ' + pts[0][1] * P;
+    for (let i = 1; i < pts.length - 1; i++){
+      const [x0, y0] = pts[i-1], [x1, y1] = pts[i], [x2, y2] = pts[i+1];
+      const u1 = [Math.sign(x1 - x0), Math.sign(y1 - y0)], u2 = [Math.sign(x2 - x1), Math.sign(y2 - y1)], k = P * .5;
+      d += ' L' + (x1 * P - u1[0] * k) + ' ' + (y1 * P - u1[1] * k) + ' L' + (x1 * P + u2[0] * k) + ' ' + (y1 * P + u2[1] * k);
+    }
+    const last = pts[pts.length - 1];
+    d += ' L' + last[0] * P + ' ' + last[1] * P;
+    const hot = r() < .14;
+    out += '<path d="'+d+'" fill="none" stroke="'+(hot ? c.hi : c.a)+'" stroke-width="'+(hot ? 2.4 : 1.6)+'"/>';
+    out += cr(pts[0][0] * P, pts[0][1] * P, 4, c.bg, hot ? c.hi : c.b, 1.6);
+    out += cr(last[0] * P, last[1] * P, hot ? 5 : 3.5, hot ? c.hi : c.b, 'none', 0);
+  }
+  if (gx >= 10){
+    const chips = Math.max(1, Math.round(W * H / 80000));
+    for (let k = 0; k < chips; k++){
+      const cw = 4 + Math.floor(r() * 3), ch = 3 + Math.floor(r() * 3);
+      let cx = 1 + Math.floor(r() * Math.max(1, gx - cw - 1)), cy = 1 + Math.floor(r() * Math.max(1, gy - ch - 1));
+      if (dir === 'right') cx = Math.max(cx, Math.floor(gx * .45));
+      if (dir === 'left') cx = Math.min(cx, Math.floor(gx * .4));
+      const X = cx * P, Y = cy * P, w = cw * P, h = ch * P;
+      for (let i = 1; i < cw; i++){ out += ln(X + i * P, Y, X + i * P, Y - 9, c.b, 1.8) + ln(X + i * P, Y + h, X + i * P, Y + h + 9, c.b, 1.8); }
+      for (let i = 1; i < ch; i++){ out += ln(X, Y + i * P, X - 9, Y + i * P, c.b, 1.8) + ln(X + w, Y + i * P, X + w + 9, Y + i * P, c.b, 1.8); }
+      out += '<rect x="'+X+'" y="'+Y+'" width="'+w+'" height="'+h+'" fill="'+c.bg+'" stroke="'+c.b+'" stroke-width="2"/>';
+      out += '<rect x="'+(X+10)+'" y="'+(Y+10)+'" width="'+(w-20)+'" height="'+(h-20)+'" fill="none" stroke="'+c.a+'" stroke-width="1.4"/>';
+      out += '<rect x="'+(X+16)+'" y="'+(Y+16)+'" width="9" height="9" fill="'+c.hi+'"/>';
+    }
+  }
+  return out;
+}
+
+function mNeural(W, H, c, r){
+  const L = 5, padX = 34, padY = 32, cols = [];
+  for (let i = 0; i < L; i++){
+    const n = 4 + Math.floor(r() * 4), x = padX + i * (W - 2 * padX) / (L - 1), col = [];
+    for (let j = 0; j < n; j++) col.push([x + (r() - .5) * 12, padY + (j + .5) * (H - 2 * padY) / n + (r() - .5) * 8]);
+    cols.push(col);
+  }
+  let out = '';
+  for (let i = 0; i < L - 1; i++) for (const p of cols[i]){
+    const k = 2 + Math.floor(r() * 2);
+    for (let m = 0; m < k; m++){ const q = cols[i+1][Math.floor(r() * cols[i+1].length)]; out += ln(p[0], p[1], q[0], q[1], c.a, 1.2); }
+  }
+  let cur = cols[0][Math.floor(r() * cols[0].length)]; const path = [cur];
+  for (let i = 1; i < L; i++){ cur = cols[i][Math.floor(r() * cols[i].length)]; path.push(cur); }
+  out += '<polyline points="'+path.map(p => f1(p[0]) + ',' + f1(p[1])).join(' ')+'" fill="none" stroke="'+c.hi+'" stroke-width="2.6" stroke-linejoin="round"/>';
+  for (const col of cols) for (const p of col) out += cr(p[0], p[1], 6, c.bg, c.b, 1.8);
+  for (const p of path) out += cr(p[0], p[1], 8, c.hi, c.bg, 2);
+  return out;
+}
+
+function mHex(W, H, c, r, dir){
+  const s = 30, w = Math.sqrt(3) * s, h = 1.5 * s;
+  let out = '';
+  for (let row = 0; row * h < H + s; row++) for (let col = 0; col * w < W + w; col++){
+    const x = col * w + (row % 2 ? w / 2 : 0), y = row * h;
+    const keep = dir === 'right' ? x / W : dir === 'left' ? 1 - x / W : dir === 'bottom' ? y / H : 1;
+    if (r() > keep * 1.1 + .1) continue;
+    const pts = [];
+    for (let k = 0; k < 6; k++){ const a = (60 * k - 30) * Math.PI / 180; pts.push(f1(x + s * .94 * Math.cos(a)) + ',' + f1(y + s * .94 * Math.sin(a))); }
+    const q = r();
+    const fill = q < .03 ? c.hi : q < .13 ? c.fa : 'none';
+    out += '<polygon points="'+pts.join(' ')+'" fill="'+fill+'" stroke="'+c.a+'" stroke-width="1.5"/>';
+  }
+  return out;
+}
+
+function mOrbit(W, H, c, r, dir){
+  const cx = W * (dir === 'right' ? .6 : dir === 'left' ? .4 : dir === 'bottom' ? .5 : .72), cy = H * .5, R = Math.min(W, H) * .46;
+  const pt = (rad, a) => [cx + rad * Math.cos(a * Math.PI / 180), cy + rad * Math.sin(a * Math.PI / 180)];
+  const arc = (rad, a0, a1, col, w) => { const p0 = pt(rad, a0), p1 = pt(rad, a1); return '<path d="M'+f1(p0[0])+' '+f1(p0[1])+' A'+f1(rad)+' '+f1(rad)+' 0 '+((a1 - a0) > 180 ? 1 : 0)+' 1 '+f1(p1[0])+' '+f1(p1[1])+'" fill="none" stroke="'+col+'" stroke-width="'+w+'"/>'; };
+  let out = '';
+  out += ln(cx - R * 1.12, cy, cx + R * 1.12, cy, c.a, 1.2) + ln(cx, cy - R * 1.12, cx, cy + R * 1.12, c.a, 1.2);
+  [1, .82, .64, .42, .22].forEach((k, i) => { out += cr(cx, cy, R * k, 'none', i % 2 ? c.a : c.b, i % 2 ? 1.4 : 1.8).replace('/>', (i % 2 ? ' stroke-dasharray="3 7"' : '') + '/>'); });
+  for (let a = 0; a < 360; a += 6){ const long = a % 30 === 0, p0 = pt(R, a), p1 = pt(R - (long ? 16 : 7), a); out += ln(p0[0], p0[1], p1[0], p1[1], long ? c.b : c.a, long ? 2 : 1.2); }
+  for (let k = 0; k < 3; k++){ const a0 = r() * 300; out += arc(R * (k % 2 ? .64 : .82), a0, a0 + 40 + r() * 70, c.hi, 5); }
+  for (let k = 0; k < 4; k++){ const p = pt(R * [.82, .64, 1, .42][k], r() * 360); out += cr(p[0], p[1], k === 0 ? 7 : 4.5, k === 0 ? c.hi : c.bg, k === 0 ? c.bg : c.b, 2); }
+  for (let k = 0; k < 7; k++){ const x = r() * W, y = r() * H; out += ln(x - 5, y, x + 5, y, c.b, 1.4) + ln(x, y - 5, x, y + 5, c.b, 1.4); }
+  return out;
+}
+
+function mDots(W, H, c, r, dir){
+  const P = 22, px = W * (.3 + r() * .4), py = H * (.3 + r() * .4), diag = Math.hypot(W, H);
+  let out = '';
+  for (let y = P / 2; y < H; y += P) for (let x = P / 2; x < W; x += P){
+    const d = Math.hypot(x - px, y - py) / diag, v = (Math.sin(d * 16) + 1) / 2;
+    const keep = dir === 'right' ? x / W : dir === 'left' ? 1 - x / W : dir === 'bottom' ? y / H : 1;
+    const rad = v * Math.min(1, keep * 1.2 + .1) * 8.5;
+    if (rad < .9) continue;
+    out += '<circle cx="'+f1(x)+'" cy="'+f1(y)+'" r="'+f1(rad)+'" fill="'+(rad > 7.6 && r() < .35 ? c.hi : rad > 4 ? c.b : c.a)+'"/>';
+  }
+  return out;
+}
+
+function mWave(W, H, c, r, dir){
+  const bw = 8, gap = 6, n = Math.floor(W / (bw + gap)), phase = r() * 6, f2 = 1 + r() * 2;
+  const bottom = dir === 'bottom';
+  let out = '';
+  for (let i = 0; i < n; i++){
+    const t = i / n, env = dir === 'right' ? t : dir === 'left' ? 1 - t : 1;
+    const amp = (Math.sin(t * 9 + phase) * .5 + .5) * (Math.sin(t * 23 * f2 / 3) * .3 + .7) * (.25 + .75 * env);
+    const h = Math.max(4, amp * H * (bottom ? .9 : .78)), x = i * (bw + gap) + gap / 2, y = bottom ? H - h : H / 2 - h / 2;
+    out += '<rect x="'+f1(x)+'" y="'+f1(y)+'" width="'+bw+'" height="'+f1(h)+'" fill="'+(amp > .66 ? c.hi : amp > .35 ? c.b : c.a)+'"/>';
+  }
+  out += ln(0, bottom ? H - 1 : H / 2, W, bottom ? H - 1 : H / 2, c.b, 1.4);
+  return out;
+}
+
+function mIso(W, H, c, r){
+  const N = 6, s = Math.min(W / (N * 1.8 + 1), H / (N + 3));
+  const ox = W * .5, oy = H * .5 + s * 1.2;
+  const P = (x, y, z) => f1(ox + (x - y) * s * .866) + ',' + f1(oy + (x + y) * s * .5 - z * s - N * s * .5);
+  const poly = (pts, fill, stroke, w) => '<polygon points="'+pts.join(' ')+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+w+'" stroke-linejoin="round"/>';
+  const cells = [];
+  for (let gx = 0; gx < N; gx++) for (let gy = 0; gy < N; gy++) if (r() > .3) cells.push([gx, gy, 1 + Math.floor(r() * 3), r() < .1]);
+  let out = '';
+  // floor grid
+  for (let i = 0; i <= N; i++){ out += '<polyline points="'+P(i, 0, 0)+' '+P(i, N, 0)+'" fill="none" stroke="'+c.a+'" stroke-width="1"/>' + '<polyline points="'+P(0, i, 0)+' '+P(N, i, 0)+'" fill="none" stroke="'+c.a+'" stroke-width="1"/>'; }
+  cells.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
+  for (const [x, y, z, hot] of cells){
+    out += poly([P(x, y + 1, 0), P(x + 1, y + 1, 0), P(x + 1, y + 1, z), P(x, y + 1, z)], c.l, c.b, 1.2);
+    out += poly([P(x + 1, y, 0), P(x + 1, y + 1, 0), P(x + 1, y + 1, z), P(x + 1, y, z)], c.r, c.b, 1.2);
+    out += poly([P(x, y, z), P(x + 1, y, z), P(x + 1, y + 1, z), P(x, y + 1, z)], hot ? c.hi : c.t, c.b, 1.2);
+  }
+  return out;
+}
+
+function mGrid(W, H, c, r){
+  let out = '';
+  for (let x = 0; x <= W; x += 24) out += ln(x, 0, x, H, c.a, x % 120 === 0 ? 1.4 : .6, ' stroke-opacity="' + (x % 120 === 0 ? 1 : .55) + '"');
+  for (let y = 0; y <= H; y += 24) out += ln(0, y, W, y, c.a, y % 120 === 0 ? 1.4 : .6, ' stroke-opacity="' + (y % 120 === 0 ? 1 : .55) + '"');
+  const cx = W * (.5 + (r() - .5) * .3), cy = H * (.5 + (r() - .5) * .3), R = Math.min(W, H) * .28;
+  out += cr(cx, cy, R, 'none', c.b, 2) + cr(cx, cy, R * .6, 'none', c.a, 1.4).replace('/>', ' stroke-dasharray="4 6"/>');
+  out += ln(cx - R * 1.25, cy, cx + R * 1.25, cy, c.b, 1.4) + ln(cx, cy - R * 1.25, cx, cy + R * 1.25, c.b, 1.4);
+  out += cr(cx + R * .7, cy - R * .7, 6, c.hi, 'none', 0);
+  const k = Math.min(36, W / 5);
+  [[14, 14, 1, 1], [W - 14, 14, -1, 1], [14, H - 14, 1, -1], [W - 14, H - 14, -1, -1]].forEach(([x, y, sx, sy]) => {
+    out += '<polyline points="'+x+','+(y + sy * k)+' '+x+','+y+' '+(x + sx * k)+','+y+'" fill="none" stroke="'+c.hi+'" stroke-width="3"/>';
+  });
+  const dy = H - 34;
+  out += ln(40, dy, W - 40, dy, c.b, 1.4) + ln(40, dy - 7, 40, dy + 7, c.b, 1.4) + ln(W - 40, dy - 7, W - 40, dy + 7, c.b, 1.4);
+  out += '<rect x="'+f1(W / 2 - 18)+'" y="'+(dy - 6)+'" width="36" height="12" fill="'+c.bg+'" stroke="'+c.b+'" stroke-width="1.4"/>';
+  return out;
+}
+
+function motifSVG(kind, W, H, c, seed, dir){
+  const fn = ({circuit:mCircuit, neural:mNeural, hex:mHex, orbit:mOrbit, dots:mDots, wave:mWave, iso:mIso, grid:mGrid})[kind];
+  if (!fn) return '';
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid slice">' + fn(W, H, c, rng(seed), dir || 'none') + '</svg>';
+}
+const svgURL = s => "url('data:image/svg+xml;utf8," + encodeURIComponent(s) + "')";
+
+function decoLayer(d, tone, c, idx){
+  if (!drawnOn() || !d || !MOTIFS.includes(d.motif)) return '';
+  const place = ['bg','right','left','bottom'].includes(d.place) ? d.place : 'right';
+  const pos = ({
+    bg:'left:0;top:0;width:100%;height:100%',
+    right:'right:0;top:0;width:46%;height:100%',
+    left:'left:0;top:0;width:46%;height:100%',
+    bottom:'left:0;bottom:0;width:100%;height:'+Math.round(216 * c.u)+'px'
+  })[place];
+  return '<div class="pz-deco" data-m="'+d.motif+'" data-p="'+place+'" data-t="'+tone+'" data-b="'+(d.strength === 'bold' ? 1 : 0)+'" data-s="'+(c.seed + idx * 7919)+'" style="'+pos+'"></div>';
+}
+/* Draw each graphic at its real size, so density and line weight stay the same on short and tall sections. */
+function paintDecos(root, plan){
+  const p = palette(plan), u = parseFloat(root.style.getPropertyValue('--u')) || 1;
+  root.querySelectorAll('.pz-deco').forEach(el => {
+    const W = Math.max(60, Math.round(el.offsetWidth / u)), H = Math.max(60, Math.round(el.offsetHeight / u));
+    const svg = motifSVG(el.dataset.m, W, H, motifColors(el.dataset.t, p, el.dataset.b === '1'), +el.dataset.s, el.dataset.p === 'bg' ? 'none' : el.dataset.p);
+    el.style.backgroundImage = svgURL(svg);
+    el.style.backgroundSize = '100% 100%';
+  });
+}
+function glyphTile(kind, tone, c, k){
+  return '<div class="pz-glt" style="background-image:'+svgURL(motifSVG(kind, 180, 180, motifColors(tone, c.p, true), c.seed + k * 131 + 17, 'none'))+'"></div>';
+}
+
+/* ---------- poster renderer ---------- */
+const SECTION_TYPES = ['hero','stats','bars','steps','details','text','list','compare','image','cta','gauges','layers'];
+const TONES = ['bg','tint','accent','ink'];
+
+function palette(plan){
+  const P = plan.palette || {};
+  const bg = hex(P.bg,'#F3F2EE'), ink = hex(P.ink,'#14171C'), accent = hex(P.accent,'#2744E8');
+  return { bg, ink, accent, accent2: hex(P.accent2, accent), onAccent: hex(P.onAccent,'#FFFFFF'), tint: mix(ink, bg, .07) };
+}
+function toneVars(tone, p){
+  const t = ({
+    bg:     {bg:p.bg,     fg:p.ink,     ac:p.accent},
+    tint:   {bg:p.tint,   fg:p.ink,     ac:p.accent},
+    accent: {bg:p.accent, fg:p.onAccent, ac:p.onAccent},
+    ink:    {bg:p.ink,    fg:p.bg,      ac:p.accent2}
+  })[tone] || {bg:p.bg, fg:p.ink, ac:p.accent};
+  return '--s-bg:'+t.bg+';--s-fg:'+t.fg+';--s-ac:'+t.ac+';--s-mu:'+mix(t.fg,t.bg,.62)+';--s-ru:'+mix(t.fg,t.bg,.2);
+}
+const titleH = t => t ? '<div class="pz-title">'+esc(t)+'</div>' : '';
+
+function heroHTML(s, c, tv, tone){
+  const img = c.img(s.image);
+  const mode = img ? (['background','right','top'].includes(s.imageMode) ? s.imageMode : 'background') : 'none';
+  const hl = String(s.headline || '');
+  const fs = hl.length <= 16 ? 132 : hl.length <= 28 ? 108 : hl.length <= 44 ? 88 : 70;
+  const eb = s.eyebrow ? '<div class="pz-eyebrow" style="color:var(--s-ac)">'+esc(s.eyebrow)+'</div>' : '';
+  const sb = s.sub ? '<p class="pz-sub">'+esc(s.sub)+'</p>' : '';
+  const head = '<h1 class="pz-h" style="font-size:calc(var(--u)*'+fs+')">'+esc(hl)+'</h1>';
+  const al = s.align === 'center' ? ' pz-center' : '';
+  const minH = 'min-height:'+Math.round(c.hmin*c.u)+'px;';
+  const deco = decoLayer(s.deco, tone, c, 0);
+  if (mode === 'background'){
+    const safe = c.safe(s.image);
+    const light = s.imageTone !== 'dark';
+    const fg = light ? '#FFFFFF' : c.p.ink;
+    const base = light ? '0,0,0' : '255,255,255';
+    const dir = ({left:'to right', right:'to left', top:'to bottom', bottom:'to top'})[safe];
+    const scrim = dir
+      ? 'linear-gradient('+dir+',rgba('+base+',.62) 0%,rgba('+base+',.36) 45%,rgba('+base+',0) 88%)'
+      : 'linear-gradient(rgba('+base+',.3),rgba('+base+',.3))';
+    const justify = safe === 'top' ? 'flex-start' : 'flex-end';
+    const w = (safe === 'left' || safe === 'right') ? '62%' : '100%';
+    const ml = safe === 'right' ? 'margin-left:auto;' : '';
+    return '<section class="pz-s pz-hero" style="'+minH+'--s-bg:#000;--s-fg:'+fg+';--s-ac:'+fg+';background-image:'+scrim+",url('"+img+"');background-size:cover;background-position:center;justify-content:"+justify+'">'
+      + '<div class="pz-ht'+al+'" style="width:'+w+';'+ml+'">'+eb+head+sb+'</div></section>';
+  }
+  if (mode === 'right'){
+    return '<section class="pz-s pz-hero pz-hero-r" style="'+minH+tv+'">'+deco+'<div class="pz-ht'+al+'">'+eb+head+sb+'</div>'
+      + '<div class="pz-art" style="background-image:url(\''+img+'\')"></div></section>';
+  }
+  if (mode === 'top'){
+    return '<section class="pz-s pz-hero pz-hero-t" style="'+minH+tv+'">'+deco+'<div class="pz-art" style="height:calc(var(--u)*'+(c.fixed?400:480)+');flex:0 0 auto;background-image:url(\''+img+'\')"></div>'
+      + '<div class="pz-ht'+al+'">'+eb+head+sb+'</div></section>';
+  }
+  const padB = s.deco && s.deco.place === 'bottom' ? 'padding-bottom:calc(var(--u)*230);' : '';
+  const textW = s.deco && ['right','left'].includes(s.deco.place) ? 'max-width:55%;' + (s.deco.place === 'left' ? 'margin-left:auto;' : '') : '';
+  return '<section class="pz-s pz-hero" style="'+minH+padB+tv+'">'+deco+'<div class="pz-ht'+al+'" style="'+textW+'"><div class="pz-bar"></div>'+eb+head+sb+'</div></section>';
+}
+
+const cleanTitle = t => String(t || '').replace(/^\s*(?:step\s*)?\d+\s*[.):\-–]\s*/i, '');
+
+function sectionHTML(s, c, idx){
+  const tone = TONES.includes(s.tone) ? s.tone : (s.type === 'cta' ? 'accent' : 'bg');
+  const tv = toneVars(tone, c.p);
+  const padB = s.deco && s.deco.place === 'bottom' ? 'padding-bottom:calc(var(--u)*230);' : '';
+  const wrap = (cls, inner) => '<section class="pz-s '+(cls || '')+'" style="'+padB+tv+'">'+decoLayer(s.deco, tone, c, idx + 1)+'<div class="pz-in">'+inner+'</div></section>';
+  switch (s.type){
+    case 'hero': return heroHTML(s.image && !c.img(s.image) && !s.deco ? Object.assign({}, s, {deco:{motif:'grid', place:'right', strength:'bold'}}) : s, c, tv, tone);
+    case 'stats': {
+      const items = (s.items || []).slice(0, 4), n = Math.max(items.length, 1);
+      return wrap('', titleH(s.title) + '<div class="pz-stats" style="grid-template-columns:repeat('+n+',minmax(0,1fr))">'
+        + items.map(i => {
+            const v = String(i.value ?? '');
+            const size = v.length > 6 ? 64 : n >= 4 ? 72 : 96;
+            return '<div class="pz-stat"><div class="pz-big" style="font-size:calc(var(--u)*'+size+')">'+esc(v)+'</div><div class="pz-lbl">'+esc(i.label)+'</div></div>';
+          }).join('') + '</div>');
+    }
+    case 'bars': {
+      const items = (s.items || []).map(i => ({label:String(i.label ?? ''), value:Number(i.value)})).filter(i => Number.isFinite(i.value) && i.value >= 0).slice(0, 8);
+      const max = Math.max(0, ...items.map(i => i.value)) || 1;
+      const unit = String(s.unit || '');
+      const suffix = unit.length > 0 && unit.length <= 3 ? unit : '';
+      return wrap('', titleH(s.title) + (unit && !suffix ? '<div class="pz-kicker" style="margin-top:calc(var(--u)*-22)">'+esc(unit)+'</div>' : '')
+        + items.map(i => '<div class="pz-brow"><div class="pz-bl">'+esc(i.label)+'</div><div class="pz-track"><div class="pz-fill" style="width:'+(i.value/max*100).toFixed(2)+'%;background:'+(i.value === max ? 'var(--s-ac)' : 'var(--s-mu)')+'"></div></div><div class="pz-bv">'+fmtNum(i.value)+esc(suffix)+'</div></div>').join(''));
+    }
+    case 'steps': {
+      const items = (s.items || []).slice(0, 5), n = items.length;
+      const anyG = drawnOn() && items.some(i => MOTIFS.includes(i.glyph));
+      return wrap('', titleH(s.title) + items.map((i, k) =>
+        '<div class="pz-step'+(anyG ? ' g' : '')+(k === 0 ? ' f' : '')+(k === n - 1 ? ' l' : '')+'">'
+        + '<div class="pz-rail"><i class="pz-line"></i><span class="pz-node">'+(k + 1)+'</span></div>'
+        + (anyG ? '<div class="pz-gl">'+(MOTIFS.includes(i.glyph) ? glyphTile(i.glyph, tone, c, k) : '')+'</div>' : '')
+        + '<div class="pz-sb"><div class="pz-st">'+esc(cleanTitle(i.title))+'</div><div class="pz-sx">'+esc(i.text)+'</div></div></div>').join(''));
+    }
+    case 'gauges': {
+      const items = (s.items || []).slice(0, 4), n = Math.max(items.length, 1);
+      const t = toneRaw(tone, c.p), ru = mix(t.fg, t.bg, .2);
+      return wrap('', titleH(s.title) + '<div class="pz-gauges" style="grid-template-columns:repeat('+n+',minmax(0,1fr))">' + items.map(i => {
+        const raw = String(i.value ?? ''), num = parseFloat(raw.replace(/[^0-9.\-]/g, '')) || 0;
+        const max = Number(i.max) || 100, pct = Math.max(0, Math.min(1, num / max));
+        const T = 48, on = Math.round(pct * T);
+        let g = '';
+        for (let k = 0; k < T; k++){
+          const a = (k / T) * Math.PI * 2 - Math.PI / 2, r1 = 90, r2 = k % 4 === 0 ? 66 : 74;
+          g += ln(100 + r1 * Math.cos(a), 100 + r1 * Math.sin(a), 100 + r2 * Math.cos(a), 100 + r2 * Math.sin(a), k < on ? t.ac : ru, k < on ? 4.5 : 3);
+        }
+        g += cr(100, 100, 54, 'none', ru, 1.5).replace('/>', ' stroke-dasharray="2 5"/>');
+        const show = /[%a-z]/i.test(raw) ? raw : fmtNum(num) + (max === 100 ? '%' : '');
+        return '<div class="pz-g"><div class="pz-gr"><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">'+g+'</svg><div class="pz-gv">'+esc(show)+'</div></div><div class="pz-lbl">'+esc(i.label)+'</div></div>';
+      }).join('') + '</div>');
+    }
+    case 'layers': {
+      const L = (s.layers || []).slice(0, 6).map(l => ({label:String(l.label || ''), caption:String(l.caption || ''), n:Math.max(2, Math.min(8, Math.round(Number(l.nodes)) || 4))}));
+      if (L.length < 2) return '';
+      const W = 872, Hh = Math.max(...L.map(l => l.n)) * 62 + 40;
+      const r = rng(c.seed + idx * 31), t = toneRaw(tone, c.p);
+      const X = i => (i + .5) / L.length * W, Y = (l, j) => (Hh / l.n) * (j + .5);
+      let svg = '';
+      for (let i = 0; i < L.length - 1; i++) for (let j = 0; j < L[i].n; j++){
+        const tg = L[i + 1].n <= 4 ? [...Array(L[i + 1].n).keys()] : [Math.floor(r() * L[i + 1].n), Math.floor(r() * L[i + 1].n), Math.floor(r() * L[i + 1].n)];
+        for (const q of new Set(tg)) svg += ln(X(i), Y(L[i], j), X(i + 1), Y(L[i + 1], q), mix(t.fg, t.bg, .22), 1.6);
+      }
+      const path = L.map(l => Math.floor(r() * l.n));
+      for (let i = 0; i < L.length - 1; i++) svg += ln(X(i), Y(L[i], path[i]), X(i + 1), Y(L[i + 1], path[i + 1]), t.ac, 3.4);
+      const nodes = L.map((l, i) => Array.from({length:l.n}, (_, j) =>
+        '<div class="pz-nd'+(path[i] === j ? ' h' : '')+'" style="left:calc('+(X(i) / W * 100).toFixed(2)+'% - var(--u)*14);top:calc(var(--u)*'+f1(Y(l, j) - 14)+')"></div>').join('')).join('');
+      return wrap('', titleH(s.title)
+        + '<div class="pz-lh" style="grid-template-columns:repeat('+L.length+',minmax(0,1fr))">'
+        + L.map(l => '<div><div class="pz-kicker" style="margin:0;color:var(--s-fg)">'+esc(l.label)+'</div>'+(l.caption ? '<div class="pz-sx">'+esc(l.caption)+'</div>' : '')+'</div>').join('')
+        + '</div><div class="pz-lyv" style="height:calc(var(--u)*'+Hh+')"><svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+Hh+'" viewBox="0 0 '+W+' '+Hh+'" preserveAspectRatio="none">'+svg+'</svg>'+nodes+'</div>');
+    }
+    case 'details': {
+      const items = (s.items || []).slice(0, 6);
+      return wrap('', '<div class="pz-dgrid">'
+        + items.map((i, k) => '<div'+(items.length % 2 && k === items.length-1 ? ' class="pz-wide"' : '')+'><div class="pz-kicker">'+esc(i.label)+'</div><div class="pz-dv">'+esc(i.value)+'</div></div>').join('')
+        + '</div>');
+    }
+    case 'text': {
+      const paras = String(s.body || '').split(/\n+/).filter(Boolean);
+      return wrap('', titleH(s.title) + '<div class="pz-body">'+paras.map(p => '<p>'+esc(p)+'</p>').join('')+'</div>');
+    }
+    case 'list': {
+      const items = (s.items || []).slice(0, 8).map(String);
+      return wrap('', titleH(s.title) + '<ul class="pz-ul" style="grid-template-columns:'+(items.length > 5 ? '1fr 1fr' : '1fr')+'">'
+        + items.map(t => '<li><i class="pz-mk"></i><span>'+esc(t)+'</span></li>').join('') + '</ul>');
+    }
+    case 'compare': {
+      const col = side => {
+        const d = s[side] || {};
+        return '<div class="pz-cc"><div class="pz-title">'+esc(d.title)+'</div><ul class="pz-ul" style="grid-template-columns:1fr">'
+          + (d.points || []).slice(0, 6).map(t => '<li><i class="pz-mk"></i><span>'+esc(t)+'</span></li>').join('') + '</ul></div>';
+      };
+      return wrap('', '<div class="pz-cmp">'+col('left')+col('right')+'</div>');
+    }
+    case 'image': {
+      const img = c.img(s.image);
+      if (!img) return '';
+      return wrap('', '<div class="pz-art pz-img" style="background-image:url(\''+img+'\')"></div>' + (s.caption ? '<div class="pz-cap">'+esc(s.caption)+'</div>' : ''));
+    }
+    case 'cta':
+      return wrap('pz-cta', '<div class="pz-h">'+esc(s.headline)+'</div>'
+        + (s.action ? '<div class="pz-pill">'+esc(s.action)+'</div>' : '')
+        + (s.contact ? '<div class="pz-contact">'+esc(s.contact)+'</div>' : ''));
+  }
+  return '';
+}
+
+function buildPoster(plan, fmtKey){
+  const f = FORMATS[fmtKey] || FORMATS.letter;
+  const p = palette(plan);
+  const d = FONTS[plan.fonts?.display]?.r === 'd' ? plan.fonts.display : 'Bricolage Grotesque';
+  const b = FONTS[plan.fonts?.body]?.r === 'b' ? plan.fonts.body : 'IBM Plex Sans';
+  const m = FONTS[plan.fonts?.mono]?.r === 'm' ? plan.fonts.mono : 'IBM Plex Mono';
+  const u = f.w / 1000;
+  const arts = Object.fromEntries((plan.art || []).map(a => [a.id, a]));
+  const ups = Object.fromEntries(state.uploads.map(x => [x.id, x]));
+  const c = {
+    p, u, fixed: !!f.h, hmin: f.h ? 360 : 520,
+    seed: hashStr(plan.sections.map(s => String(s.headline || s.title || s.type)).join('|')),
+    img: id => (id && (state.art[id] || (ups[id] && ups[id].full))) || null,
+    safe: id => {
+      if (arts[id]) return ['left','right','top','bottom'].includes(arts[id].safe) ? arts[id].safe : null;
+      return 'bottom';
+    }
+  };
+  const vars = '--u:'+u+'px;--p-bg:'+p.bg+';--p-ink:'+p.ink+';--p-accent:'+p.accent+';--p-accent2:'+p.accent2+';--p-onaccent:'+p.onAccent
+    + ";--fd:'"+d+"',"+FONTS[d].fb+';--fdw:'+FONTS[d].hw+";--fb:'"+b+"',"+FONTS[b].fb+";--fm:'"+m+"',monospace;";
+  const frame = plan.frame ? '<i class="pz-fr tl"></i><i class="pz-fr tr"></i><i class="pz-fr bl"></i><i class="pz-fr br"></i>' : '';
+  const body = plan.sections.map((s, i) => sectionHTML(s, c, i)).join('') + frame;
+  return { fonts:[d, b, m], html:'<div class="pz" id="poster" style="width:'+f.w+'px;'+(f.h ? 'height:'+f.h+'px;' : '')+vars+'">'+body+'</div>', f };
+}
+
+/* ---------- preview ---------- */
+function fit(){
+  const stage = $('#stage'), p = stage.firstElementChild;
+  if (!p) return;
+  p.style.transform = 'none';
+  const W = p.offsetWidth, H = p.offsetHeight;
+  const s = Math.min(1, stage.clientWidth / W);
+  p.style.transform = 'scale('+s+')';
+  stage.style.height = (H * s) + 'px';
+}
+function alerts(list, kind){
+  if (!list.length) return;
+  const el = document.createElement('div');
+  el.className = 'alert ' + kind;
+  el.innerHTML = list.length === 1 ? esc(list[0]) : '<ul>'+list.map(x => '<li>'+esc(x)+'</li>').join('')+'</ul>';
+  $('#alerts').appendChild(el);
+}
+async function renderNow(opts = {}){
+  const plan = state.plan; if (!plan) return;
+  const fmtKey = currentFmt();
+  const built = buildPoster(plan, fmtKey);
+  await ensureFonts(built.fonts);
+  $('#stage').innerHTML = built.html;
+  paintDecos($('#poster'), plan);
+  fit();
+  $('#meta').textContent = built.f.label + ' · ' + built.f.w + (built.f.h ? ' × ' + built.f.h : ' px wide') + (state.sample ? ' · sample, no API call made' : '');
+  $('#alerts').innerHTML = '';
+  if (opts.warnings) alerts(opts.warnings, 'warn');
+  alerts((plan.notes || []).map(n => 'Check: ' + n), 'warn');
+  const poster = $('#poster');
+  if (built.f.h && poster.scrollHeight > poster.clientHeight + 4) alerts(['The content is taller than this page size, so the bottom is cut off. Shorten the brief, or pick Poster or a taller size.'], 'warn');
+  $('#planJson').value = JSON.stringify(plan, null, 2);
+}
+
+/* ---------- samples (render without an API call) ---------- */
+const SAMPLE_FLYER = {
+  kind:'flyer', notes:['This is a built-in sample. Press Generate to make your own.'],
+  palette:{bg:'#F4EFE4', ink:'#1B2A22', accent:'#C8421B', accent2:'#F0B429', onAccent:'#FFF8EE'},
+  fonts:{display:'Anton', body:'Libre Franklin'}, art:[],
+  sections:[
+    {type:'hero', tone:'bg', eyebrow:'Parish Hall · Sat 18 Oct', headline:'BAKE SALE FOR THE NEW PLAYGROUND', sub:"Cakes, cookies, sourdough and jam from St. Anne's kitchens."},
+    {type:'details', tone:'ink', items:[{label:'When', value:'9am to 2pm'},{label:'Where', value:"Parish Hall, 12 Mill Street"},{label:'Entry', value:'Free'}]},
+    {type:'cta', tone:'accent', headline:'Every sale goes to the playground.', action:'Come hungry', contact:"St. Anne's Parish"}
+  ]
+};
+const SAMPLE_INFO = {
+  kind:'infographic', frame:true, notes:['Built-in sample. Press Generate to make your own.'],
+  palette:{bg:'#0A1220', ink:'#E6EEF8', accent:'#22D3C5', accent2:'#FFB224', onAccent:'#05131A'},
+  fonts:{display:'Chakra Petch', body:'IBM Plex Sans', mono:'JetBrains Mono'}, art:[],
+  sections:[
+    {type:'hero', tone:'bg', eyebrow:'Architecture & process', headline:'How Artificial Intelligence Works', sub:'A step-by-step breakdown of how machines convert raw inputs into predictions and decisions.', deco:{motif:'neural', place:'right', strength:'bold'}},
+    {type:'steps', tone:'tint', title:'The four-stage machine learning pipeline', deco:{motif:'grid', place:'bg', strength:'soft'}, items:[
+      {glyph:'dots', title:'Data collection & cleaning', text:'Large volumes of text, images or numerical records are gathered, cleaned and normalized to remove noise.'},
+      {glyph:'hex', title:'Feature extraction & architecture', text:'Algorithms identify key properties in the data and map them into mathematical vectors.'},
+      {glyph:'wave', title:'Training & weight adjustment', text:'The model makes predictions, measures its error against known outcomes and adjusts its internal parameters.'},
+      {glyph:'orbit', title:'Inference & deployment', text:'The finished model receives new, unseen input and produces predictions, classifications or generated output.'}]},
+    {type:'layers', tone:'bg', title:'Inside a neural network', layers:[{label:'Input',caption:'Raw data',nodes:5},{label:'Hidden',caption:'Features',nodes:7},{label:'Hidden',caption:'Patterns',nodes:7},{label:'Output',caption:'Prediction',nodes:3}], deco:{motif:'circuit', place:'bottom', strength:'soft'}},
+    {type:'cta', tone:'accent', headline:'Data in. Decisions out.', action:'Learn the pipeline', contact:'Architecture & process'}
+  ]
+};
+const SAMPLE_DATA = {
+  kind:'infographic', frame:false, notes:['Built-in sample using the library example from the chips.'],
+  palette:{bg:'#F2F4F0', ink:'#18261F', accent:'#0F7B6C', accent2:'#F2B544', onAccent:'#F2F4F0'},
+  fonts:{display:'Sora', body:'IBM Plex Sans', mono:'JetBrains Mono'}, art:[],
+  sections:[
+    {type:'hero', tone:'ink', eyebrow:'Hartfield Library · 2025', headline:'More people are coming through the door', sub:'Monthly visits rose every month from February to June.', deco:{motif:'dots', place:'right', strength:'bold'}},
+    {type:'bars', tone:'bg', title:'Visits per month', unit:'visits', deco:{motif:'wave', place:'bottom', strength:'soft'}, items:[{label:'Jan',value:4200},{label:'Feb',value:3900},{label:'Mar',value:4600},{label:'Apr',value:5100},{label:'May',value:5400},{label:'Jun',value:6200}]},
+    {type:'gauges', tone:'tint', title:'Why people visit', items:[{value:38,label:'Study space'},{value:31,label:'Borrowing'},{value:19,label:"Kids' programs"},{value:12,label:'Computers'}]},
+    {type:'text', tone:'bg', body:'Source: Hartfield Library annual report.'}
+  ]
+};
+const SAMPLES = {flyer:SAMPLE_FLYER, info:SAMPLE_INFO, data:SAMPLE_DATA};
+
+/* ---------- Gemini calls ---------- */
+async function gemini(model, body, signal){
+  const key = $('#key').value.trim();
+  if (!key) throw new Error('Add your Gemini API key under "Gemini settings" first.');
+  let r;
+  try {
+    r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+      method:'POST', signal,
+      headers:{'Content-Type':'application/json', 'x-goog-api-key':key},
+      body: JSON.stringify(body)
+    });
+  } catch (e){
+    if (e.name === 'AbortError') throw e;
+    throw new Error('Could not reach Gemini. Check your internet connection, and open this file directly in Chrome from your computer. Previews inside other apps often block outside requests.');
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j && j.error && j.error.message) || ('Gemini returned status ' + r.status + '.'));
+  return j;
+}
+function partsOf(j){ return (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []; }
+
+function modeValue(){ return document.querySelector('input[name=img]:checked').value; }
+function typeValue(){ return document.querySelector('input[name=type]:checked').value; }
+function currentFmt(){ return typeValue() === 'infographic' ? 'tall' : $('#fmt').value; }
+
+async function makePlan(signal){
+  const brief = $('#brief').value.trim();
+  if (!brief) throw new Error('Write a short brief first, or tap one of the examples.');
+  const mode = modeValue(), kind = typeValue(), f = FORMATS[currentFmt()];
+  const st = STYLES.find(x => x.id === $('#style').value) || STYLES[0];
+  if (mode === 'own' && !state.uploads.length) throw new Error('Add at least one image, or switch Imagery to Gemini art or Type only.');
+  const modeText = mode === 'generate'
+    ? 'generate. You may add up to ' + (kind === 'flyer' ? 2 : 3) + ' items to "art", and you may also use uploaded images.'
+    : mode === 'own'
+      ? 'own. Leave "art" empty. Use the uploaded images only.'
+      : 'none. Leave "art" empty and use no images. Make type, colour and layout carry the design.';
+  const ups = mode === 'none' ? [] : state.uploads;
+  const text = [
+    'BRIEF:\n' + brief,
+    'KIND: ' + kind,
+    'FORMAT: ' + f.label + ', ' + f.w + 'px wide' + (f.h ? ', ' + f.h + 'px tall (fixed height, keep copy short)' : ', height grows with the content'),
+    'LOOK: ' + st.name + (st.id === 'auto' ? '' : '. Suggested fonts: ' + st.fonts.join(' + ') + '. Visual language: ' + st.art + (st.pal ? '. Palette idea: ' + st.pal : '') + (st.motifs ? '. Preferred motifs: ' + st.motifs : '')),
+    'ART MODE: ' + modeText,
+    'UPLOADED IMAGES: ' + (ups.length ? ups.map(u => u.id + ' (' + u.name + ', ' + u.w + '×' + u.h + ')').join('; ') : 'none')
+  ].join('\n\n');
+  const system = ($('#plannerPrompt').value || DEFAULT_PLANNER)
+    .replace('{{display_fonts}}', namesOf('d').join(', '))
+    .replace('{{body_fonts}}', namesOf('b').join(', '))
+    .replace('{{mono_fonts}}', namesOf('m').join(', '));
+  const parts = [{text}];
+  ups.forEach(u => { parts.push({text: u.id + ':'}); parts.push({inlineData:{mimeType:'image/jpeg', data:u.thumb.split(',')[1]}}); });
+  const j = await gemini($('#mText').value.trim(), {
+    systemInstruction:{parts:[{text:system}]},
+    contents:[{role:'user', parts}],
+    generationConfig:{responseMimeType:'application/json', temperature:0.7}
+  }, signal);
+  const raw = partsOf(j).map(p => p.text || '').join('').replace(/^\s*```(?:json)?/i,'').replace(/```\s*$/,'').trim();
+  let plan;
+  try { plan = JSON.parse(raw); } catch { throw new Error('The layout planner did not return valid JSON. Open "Prompts and plan" and tighten the planner instructions, then try again.'); }
+  return normalizePlan(plan, mode);
+}
+
+function normalizePlan(p, mode){
+  if (!p || typeof p !== 'object') throw new Error('The plan was not a JSON object.');
+  p.sections = (Array.isArray(p.sections) ? p.sections : []).filter(s => s && SECTION_TYPES.includes(s.type));
+  if (!p.sections.length) throw new Error('The plan had no usable sections. Check the planner instructions.');
+  if (mode === null) { p.art = Array.isArray(p.art) ? p.art : []; }
+  else p.art = mode === 'generate' && Array.isArray(p.art) ? p.art.filter(a => a && a.id && a.prompt).slice(0, p.kind === 'flyer' ? 2 : 3) : [];
+  p.notes = Array.isArray(p.notes) ? p.notes.map(String) : [];
+  if ((mode === 'generate' || mode === 'own') && drawnOn()) enrichPlan(p);
+  return p;
+}
+
+function artPrompt(a, plan){
+  const st = STYLES.find(x => x.id === $('#style').value) || STYLES[0];
+  const style = st.id === 'auto' ? (a.look || 'a restrained, flat, print-ready illustration style') : st.art;
+  const p = palette(plan);
+  const safe = ['left','right','top','bottom'].includes(a.safe) ? 'Keep the ' + a.safe + ' side of the picture calm and low in detail so type can sit on it.' : 'Compose freely.';
+  return ($('#artPrompt').value || DEFAULT_ART)
+    .replace('{{kind}}', plan.kind || 'flyer')
+    .replace('{{subject}}', String(a.prompt))
+    .replace('{{style}}', style)
+    .replace('{{palette}}', [p.bg, p.ink, p.accent, p.accent2].join(', '))
+    .replace('{{safeLine}}', safe);
+}
+const ASPECTS = ['1:1','3:4','4:3','16:9','9:16','4:5','5:4','2:3','3:2'];
+const POLL_DEFAULT = 'https://gen.pollinations.ai/image/{prompt}?width={w}&height={h}&seed={seed}';
+const POLL_LEGACY = 'https://image.pollinations.ai/prompt/{prompt}?width={w}&height={h}&seed={seed}&nologo=true';
+const ASPECT_PX = {'1:1':[1024,1024],'3:4':[768,1024],'4:3':[1024,768],'16:9':[1024,576],'9:16':[576,1024],'4:5':[832,1040],'5:4':[1040,832],'2:3':[704,1056],'3:2':[1056,704]};
+const sleep = (ms, signal) => new Promise((res, rej) => {
+  const t = setTimeout(res, ms);
+  if (signal) signal.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('Aborted', 'AbortError')); }, {once:true});
+});
+const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
+const canShow = u => new Promise(res => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = u; });
+async function genPollinations(prompt, aspect, signal){
+  const [w, h] = ASPECT_PX[aspect] || ASPECT_PX['1:1'];
+  const seed = Math.floor(Math.random() * 1e6);
+  const p = encodeURIComponent(prompt.replace(/\s+/g, ' ').slice(0, 1400));
+  const fill = t => t.replace('{prompt}', p).replace('{w}', w).replace('{h}', h).replace('{seed}', seed);
+  const urls = [fill($('#pollUrl').value.trim() || POLL_DEFAULT), fill(POLL_LEGACY)];
+  const errs = [];
+  for (const u of urls){
+    const host = (() => { try { return new URL(u).host; } catch { return 'address'; } })();
+    for (let attempt = 0; attempt < 2; attempt++){
+      try {
+        const r = await fetch(u, {signal});
+        if (r.status === 429){ errs.push(host + ': rate limited, waiting'); await sleep(16000, signal); continue; }
+        if (!r.ok){ errs.push(host + ': HTTP ' + r.status); break; }
+        const type = r.headers.get('content-type') || '';
+        if (!type.startsWith('image/')){ errs.push(host + ': reply was not an image (' + (type || 'no type') + ')'); break; }
+        return await blobToDataURL(await r.blob());
+      } catch (e){
+        if (e.name === 'AbortError') throw e;
+        if (await canShow(u)){ state.rawImg = true; return u; }
+        errs.push(host + ': ' + (e.message || 'network error')); break;
+      }
+    }
+  }
+  throw new Error('Pollinations failed. ' + errs.join(' | '));
+}
+async function genImage(prompt, aspect, signal){
+  if ($('#prov').value === 'pollinations') return genPollinations(prompt, aspect, signal);
+  const ar = ASPECTS.includes(aspect) ? aspect : '1:1';
+  const tries = [
+    {text:prompt, gc:{responseModalities:['IMAGE'], imageConfig:{aspectRatio:ar}}},
+    {text:prompt + '\n\nAspect ratio: ' + ar + '.', gc:{responseModalities:['TEXT','IMAGE']}}
+  ];
+  const errs = [];
+  for (const t of tries){
+    try {
+      const j = await gemini($('#mImg').value.trim(), {contents:[{role:'user', parts:[{text:t.text}]}], generationConfig:t.gc}, signal);
+      const part = partsOf(j).find(x => x.inlineData || x.inline_data);
+      if (part){ const d = part.inlineData || part.inline_data; return 'data:' + (d.mimeType || d.mime_type || 'image/png') + ';base64,' + d.data; }
+      errs.push('no image in the reply (a safety filter may have blocked the prompt)');
+    } catch (e){ if (e.name === 'AbortError') throw e; errs.push(e.message); }
+  }
+  throw new Error(errs.join(' | then: '));
+}
+async function makeArt(plan, signal){
+  const warnings = [], sent = [];
+  state.art = {}; state.rawImg = false;
+  const list = plan.art || [];
+  let done = 0;
+  const poll = $('#prov').value === 'pollinations';
+  const runOne = async a => {
+    const pr = artPrompt(a, plan);
+    sent.push('['+a.id+', '+(a.aspect||'1:1')+']\n'+pr);
+    try { state.art[a.id] = await genImage(pr, a.aspect, state.ctl.signal); }
+    catch (e){ if (e.name === 'AbortError') throw e; warnings.push('Artwork ' + a.id + ' failed: ' + e.message + (!poll && /quota|billing|free|limit|not available|permission|denied/i.test(e.message) ? ' Image models need a paid Gemini plan; a free key only covers the layout model.' : '') + ' Drawn graphics fill in where that picture was meant to go.'); }
+    done++; setStatus('Generating artwork ' + done + ' of ' + list.length + '…');
+  };
+  if (poll) { for (const a of list) await runOne(a); } else await Promise.all(list.map(runOne));
+  $('#lastPrompts').value = sent.join('\n\n---\n\n');
+  if (state.rawImg) warnings.push('Pollinations does not let this page read the picture, so it shows on screen but Download PNG may leave it out. Use Download HTML, or a screenshot.');
+  return warnings;
+}
+
+/* ---------- actions ---------- */
+function setStatus(t){ const s = $('#status'); s.textContent = t || ''; s.style.color = ''; }
+function fail(msg){
+  const s = $('#status'); s.textContent = msg; s.style.color = 'var(--err)';
+  $('#alerts').innerHTML = ''; alerts([msg], 'err');
+}
+function setBusy(b){ state.busy = b; $('#go').disabled = b; $('#stop').hidden = !b; }
+
+async function generate(){
+  state.ctl = new AbortController();
+  setBusy(true); setStatus('Planning the layout…');
+  $('#alerts').innerHTML = '';
+  try {
+    const plan = await makePlan(state.ctl.signal);
+    state.plan = plan; state.sample = false;
+    let warnings = [];
+    if (plan.art.length){ setStatus('Generating artwork 0 of ' + plan.art.length + '…'); warnings = await makeArt(plan, state.ctl.signal); }
+    else state.art = {};
+    setStatus('Setting the type…');
+    await renderNow({warnings});
+    if (warnings.length){ const st = $('#status'); st.textContent = warnings[0]; st.style.color = 'var(--err)'; }
+    else setStatus(diag(plan));
+  } catch (e){
+    if (e.name === 'AbortError') setStatus('Stopped.');
+    else fail(e.message || String(e));
+  } finally { setBusy(false); }
+}
+async function regenArt(){
+  if (!state.plan) return;
+  state.ctl = new AbortController(); setBusy(true); setStatus('Generating artwork…');
+  try {
+    const mode = modeValue();
+    if (mode !== 'generate') throw new Error('Set Imagery to Gemini art to regenerate artwork.');
+    if (!(state.plan.art || []).length) throw new Error('The current plan has no art items.');
+    const warnings = await makeArt(state.plan, state.ctl.signal);
+    await renderNow({warnings}); setStatus('Done.');
+  } catch (e){ if (e.name === 'AbortError') setStatus('Stopped.'); else fail(e.message); }
+  finally { setBusy(false); }
+}
+async function applyPlan(){
+  try {
+    const p = normalizePlan(JSON.parse($('#planJson').value), null);
+    state.plan = p; state.sample = false;
+    await renderNow();
+  } catch (e){ $('#alerts').innerHTML=''; alerts(['Could not read that JSON: ' + e.message], 'err'); }
+}
+
+async function testGemini(){
+  const out = $('#testOut'), img = $('#testImg'), ctl = new AbortController(), lines = [];
+  img.hidden = true; $('#testG').disabled = true; out.textContent = 'Testing the layout model…';
+  if (!$('#key').value.trim()) lines.push('Layout model skipped: no Gemini key entered.');
+  else try {
+    const j = await gemini($('#mText').value.trim(), {contents:[{role:'user', parts:[{text:'Reply with the single word: ok'}]}]}, ctl.signal);
+    lines.push('Layout model OK. Reply: ' + (partsOf(j).map(p => p.text || '').join('').trim().slice(0, 40) || '(empty)'));
+  } catch (e){ lines.push('Layout model FAILED: ' + e.message); }
+  out.textContent = lines.join('\n') + '\nTesting the image provider…';
+  try {
+    img.src = await genImage('A flat teal circle on a dark navy background. No text.', '1:1', ctl.signal);
+    img.hidden = false; lines.push('Image provider OK (' + $('#prov').value + '). Picture shown below.');
+  } catch (e){ lines.push('Image provider FAILED: ' + e.message); }
+  out.textContent = lines.join('\n'); $('#testG').disabled = false;
+}
+function diag(plan){
+  const d = plan.sections.filter(s => s.deco).length;
+  const g = plan.sections.reduce((n, s) => n + (s.items || []).filter(i => i && MOTIFS.includes(i.glyph)).length, 0);
+  return 'Done. ' + plan.sections.length + ' sections · ' + d + ' drawn backgrounds · ' + g + ' step tiles · artwork ' + Object.keys(state.art).length + ' of ' + (plan.art || []).length + '.';
+}
+function enrichPlan(p){
+  if (p.kind !== 'infographic') return;
+  const has = p.sections.some(s => s.deco) || p.sections.some(s => (s.items || []).some(i => i && MOTIFS.includes(i.glyph)));
+  if (has) return;
+  const seed = hashStr(JSON.stringify(p.sections).slice(0, 200)), pick = k => MOTIFS[(seed + k * 3) % MOTIFS.length];
+  const hero = p.sections.find(s => s.type === 'hero');
+  if (hero) hero.deco = {motif:pick(0), place:'right', strength:'bold'};
+  let k = 1;
+  p.sections.forEach(s => { if (s.type === 'steps') (s.items || []).forEach(i => { i.glyph = pick(k++); }); });
+  p.notes.push('The planner returned no graphics, so drawn ones were added automatically.');
+}
+
+/* ---------- uploads ---------- */
+const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+function scaled(im, max, type){
+  const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+  const g = c.getContext('2d');
+  if (type === 'image/jpeg'){ g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); }
+  g.drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL(type, .9);
+}
+async function addFiles(files){
+  for (const f of files){
+    if (!f.type.startsWith('image/') || state.uploads.length >= 4) continue;
+    try {
+      const im = await loadImg(await readURL(f));
+      state.uploads.push({id:'u'+(++uid), name:f.name, w:im.naturalWidth, h:im.naturalHeight,
+        full: scaled(im, 2000, f.type === 'image/png' ? 'image/png' : 'image/jpeg'), thumb: scaled(im, 640, 'image/jpeg')});
+    } catch { alerts(['Could not read ' + f.name + '.'], 'err'); }
+  }
+  drawUploads();
+}
+function drawUploads(){
+  $('#ups').innerHTML = state.uploads.map(u => '<div class="up"><img src="'+u.thumb+'" alt="'+esc(u.name)+'"><b>'+u.id+'</b><button type="button" data-rm="'+u.id+'" aria-label="Remove '+esc(u.name)+'">×</button></div>').join('');
+}
+function syncMode(){
+  $('#upField').hidden = modeValue() === 'none';
+  $('#fmtField').hidden = typeValue() === 'infographic';
+  const st = STYLES.find(x => x.id === $('#style').value) || STYLES[0];
+  $('#styleHint').textContent = st.hint;
+}
+
+/* ---------- export ---------- */
+function download(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+function cleanClone(){
+  const clone = $('#poster').cloneNode(true);
+  clone.style.transform = 'none';
+  return clone;
+}
+async function exportPng(){
+  const poster = $('#poster'); if (!poster) return;
+  if (typeof html2canvas === 'undefined'){ alerts(['PNG export needs the html2canvas script from cdnjs. Check your internet connection and reload.'], 'err'); return; }
+  setStatus('Rendering PNG…');
+  const clone = cleanClone();
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-30000px;top:0';
+  host.appendChild(clone); document.body.appendChild(host);
+  try {
+    const H = clone.offsetHeight, scale = Math.min(2, 12000 / H);
+    const canvas = await html2canvas(clone, {scale, backgroundColor:null, useCORS:true, logging:false});
+    canvas.toBlob(b => { download(b, 'design.png'); setStatus('PNG saved.'); }, 'image/png');
+  } catch (e){ setStatus(''); alerts(['PNG export failed: ' + e.message], 'err'); }
+  finally { host.remove(); }
+}
+function exportHtml(){
+  const poster = $('#poster'); if (!poster) return;
+  const fonts = [...loadedFonts.keys()].map(n => '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family='+n.replace(/ /g,'+')+':wght@'+FONTS[n].w+'&display=swap">').join('');
+  const doc = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Design</title>'
+    + fonts + '<style>body{margin:0;background:#888}'+$('#posterCss').textContent+'</style></head><body>' + cleanClone().outerHTML + '</body></html>';
+  download(new Blob([doc], {type:'text/html'}), 'design.html');
+}
+
+/* ---------- wiring ---------- */
+function init(){
+  $('#fmt').innerHTML = ['letter','poster','social','square'].map(k => '<option value="'+k+'">'+FORMATS[k].label+'</option>').join('');
+  $('#style').innerHTML = STYLES.map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
+  $('#chips').innerHTML = Object.keys(EXAMPLES).map(k => '<button type="button" class="chip" data-ex="'+esc(k)+'">'+esc(k)+'</button>').join('')
+    + '<button type="button" class="chip" data-sample="flyer">Preview sample flyer</button><button type="button" class="chip" data-sample="info">Preview sample infographic</button><button type="button" class="chip" data-sample="data">Preview sample data graphic</button>';
+  $('#key').value = store.get('fs.key', '');
+  $('#mText').value = store.get('fs.mText', 'gemini-3.8-flash');
+  $('#mImg').value = store.get('fs.mImg', 'gemini-3.1-flash-lite-image');
+  $('#prov').value = store.get('fs.prov', 'pollinations');
+  $('#pollUrl').value = store.get('fs.pollUrl', POLL_DEFAULT);
+  $('#plannerPrompt').value = store.get('fs.planner2', DEFAULT_PLANNER);
+  $('#artPrompt').value = store.get('fs.art', DEFAULT_ART);
+  [['prov','fs.prov'],['pollUrl','fs.pollUrl'],['key','fs.key'],['mText','fs.mText'],['mImg','fs.mImg'],['plannerPrompt','fs.planner2'],['artPrompt','fs.art']].forEach(([id,k]) => $('#'+id).addEventListener('change', e => store.set(k, e.target.value)));
+  $('#resetPrompts').onclick = () => { $('#plannerPrompt').value = DEFAULT_PLANNER; $('#artPrompt').value = DEFAULT_ART; store.set('fs.planner2', DEFAULT_PLANNER); store.set('fs.art', DEFAULT_ART); };
+
+  $('#chips').addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.ex){
+      $('#brief').value = EXAMPLES[b.dataset.ex];
+      const info = b.dataset.ex !== 'Event flyer';
+      document.querySelector('input[name=type][value='+(info ? 'infographic' : 'flyer')+']').checked = true; syncMode();
+    }
+    if (b.dataset.sample){
+      const sp = SAMPLES[b.dataset.sample];
+      document.querySelector('input[name=type][value='+sp.kind+']').checked = true; syncMode();
+      state.plan = JSON.parse(JSON.stringify(sp)); state.art = {}; state.sample = true;
+      await renderNow();
+    }
+  });
+  document.querySelectorAll('input[name=type],input[name=img]').forEach(r => r.addEventListener('change', syncMode));
+  $('#style').addEventListener('change', syncMode);
+  $('#f').addEventListener('submit', e => { e.preventDefault(); if (!state.busy) generate(); });
+  $('#stop').onclick = () => state.ctl && state.ctl.abort();
+  $('#files').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
+  const drop = $('#drop');
+  ['dragenter','dragover'].forEach(n => drop.addEventListener(n, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(n => drop.addEventListener(n, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => addFiles([...e.dataTransfer.files]));
+  $('#ups').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (!b) return; state.uploads = state.uploads.filter(u => u.id !== b.dataset.rm); drawUploads(); });
+  $('#applyPlan').onclick = applyPlan;
+  $('#testG').onclick = testGemini;
+  $('#drawn').addEventListener('change', () => { if (state.plan) renderNow(); });
+  $('#regenArt').onclick = regenArt;
+  $('#dlPng').onclick = exportPng;
+  $('#dlHtml').onclick = exportHtml;
+  window.addEventListener('resize', fit);
+  syncMode();
+  state.plan = JSON.parse(JSON.stringify(SAMPLE_FLYER)); state.sample = true;
+  renderNow();
+}
+init();
+</script>
+</body>
+</html>
